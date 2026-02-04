@@ -1,0 +1,196 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------
+// MODELOS DE BETTER AUTH (Obligatorios para la autenticación)
+// ---------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  
+  // Relación con Sessions y Accounts (Better Auth)
+  sessions      Session[]
+  accounts      Account[]
+
+  // --- LÓGICA DE NEGOCIO ---
+  role          Role          @default(PATIENT)
+  appointments  Appointment[] // Un Paciente tiene muchos turnos
+
+  // 🟢 NUEVO: Relación opcional con Doctor
+  doctor        Doctor?
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id           String    @id
+  accountId    String
+  providerId   String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String?
+  refreshToken String?
+  idToken      String?
+  expiresAt    DateTime?
+  password     String?
+  createdAt    DateTime
+  updatedAt    DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// ---------------------------------------------------------
+// MODELOS DE NEGOCIO (Turnos Médicos)
+// ---------------------------------------------------------
+
+model Appointment {
+  id        String   @id @default(cuid())
+  date      DateTime // Fecha y hora del turno
+  notes     String?  // Motivo de consulta u observaciones
+  status    Status   @default(PENDING)
+  
+  medicalRecord MedicalRecord?
+  
+  // Relaciones
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  
+  userId    String   // Paciente
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("appointment")
+}
+
+model Specialty {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  doctors   Doctor[] // Relación inversa: Una especialidad -> Muchos médicos
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Doctor {
+  id            String          @id @default(cuid())
+  name          String
+  licenseNumber String?
+  specialtyId   String
+  specialty     Specialty       @relation(fields: [specialtyId], references: [id])
+  appointments  Appointment[]
+  
+  // 🟢 NUEVAS RELACIONES
+  schedules     DoctorSchedule[] // Su horario semanal
+  absences      DoctorAbsence[]  // Sus vacaciones/bloqueos
+
+  // 🟢 NUEVO: Relación con User (Login)
+  userId        String?         @unique // 👈 Clave única: 1 User = 1 Doctor
+  user          User?           @relation(fields: [userId], references: [id])
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("doctor")
+}
+
+// 1. Horario Semanal (Ej: Lunes de 09:00 a 17:00)
+model DoctorSchedule {
+  id        String   @id @default(cuid())
+  dayOfWeek Int      // 0=Domingo, 1=Lunes, ..., 6=Sábado
+  startTime String   // "09:00"
+  endTime   String   // "17:00"
+  
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("doctor_schedule")
+}
+
+// 2. Ausencias (Ej: Congreso del 10/10 al 15/10)
+model DoctorAbsence {
+  id          String   @id @default(cuid())
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?  // "Vacaciones", "Congreso", "Enfermedad"
+  
+  doctorId    String
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("doctor_absence")
+}
+
+model MedicalRecord {
+  id            String      @id @default(cuid())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  diagnosis     String      // Diagnóstico principal
+  treatment     String?     // Receta / Tratamiento
+  notes         String?     // Notas privadas del médico
+  
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+}
+
+// ---------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------
+
+enum Role {
+  ADMIN
+  PATIENT
+  DOCTOR
+}
+
+enum Status {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
