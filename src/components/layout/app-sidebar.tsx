@@ -51,7 +51,7 @@ const MENU_CONFIG = [
   {
     header: "Consultorio",
     items: [
-      { label: "Mi Agenda", href: "/dashboard/medico", icon: UserCog, roles: ["DOCTOR"] },
+      { label: "Mi Agenda", href: "/dashboard", icon: UserCog, roles: ["DOCTOR"] },
       { label: "Historiales", href: "/dashboard/medico/historiales", icon: FileText, roles: ["DOCTOR"] },
     ]
   },
@@ -118,7 +118,7 @@ export function AppSidebar({ className }: React.HTMLAttributes<HTMLDivElement>) 
   );
 }
 
-// 🟢 RESTAURACIÓN: Componente MobileSidebar (Esto es lo que faltaba y rompía el layout)
+// 🟢 RESTAURACIÓN: Componente MobileSidebar
 export function MobileSidebar() {
   const [open, setOpen] = useState(false);
 

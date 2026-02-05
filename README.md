@@ -1,7 +1,9 @@
-URL:
-Repositorio: https://github.com/Adalberto-JAB/turno-medico
-Usuario administrador:
-Usuario médico:
+## URL: https://turno-medico-216f.vercel.app/
+## Repositorio: https://github.com/Adalberto-JAB/turno-medico
+## Usuario administrador: pedro@almonte.com - password: pedroalmonte123 
+## Usuario médico: carlosernesto@peralta.com - password: carlosperalta123
+
+## Usuario paceinte: crear un nuevo usuario para las pruebas desde la pagina principal
 
 El objetivo de este proyecto es generar un orden administrativo para clínicas o centros médicos, solucionando problemas como: turnos duplicados, historias clínicas en papel que se pierden y falta de control sobre la agenda médica; desarrollando una Plataforma Integral de Gestión Médica. Pretendo que no sea solo un turnero, si no un sistema que conecta a Pacientes, Médicos y Administradores en un flujo de trabajo 100% digital.
 A nivel técnico, la aplicación es robusta y moderna. Utilizamos Next.js 15 con App Router para el frontend y backend. La base de datos es PostgreSQL gestionada con Prisma ORM, **el sistema es hibrido ya que traja con apis y server actions**. Para la seguridad, se implementa un sistema de autenticación basado en Roles (RBAC) y Middleware de protección.
