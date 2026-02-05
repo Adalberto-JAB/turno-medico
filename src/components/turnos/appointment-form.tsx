@@ -24,15 +24,14 @@ import {
 } from "@/components/ui/command";
 import { Textarea } from "@/components/ui/textarea";
 
-// Importamos tus componentes existentes
 import { TimeSlots } from "./time-slots";
 import { getAvailableSlots } from "@/actions/availability";
 
-// Definimos el esquema de validación
+// --- DEFINICIONES DE TIPOS Y ESQUEMAS ---
+
 const formSchema = z.object({
   userId: z.string().min(1, "Selecciona un paciente"),
   doctorId: z.string().min(1, "Selecciona un médico"),
-  // CORRECCIÓN ZOD: Usamos 'message' que es la propiedad universal aceptada
   date: z.date({ 
     message: "Selecciona una fecha válida" 
   }),
@@ -40,7 +39,6 @@ const formSchema = z.object({
   notes: z.string().optional(),
 });
 
-// Definimos la estructura de los datos iniciales
 interface AppointmentData {
   id: string;
   userId: string;
@@ -50,18 +48,27 @@ interface AppointmentData {
   status: string;
 }
 
-// Actualizamos las Props para aceptar initialData
+// CORRECCIÓN AQUÍ: Aceptamos 'null' para el rol
+interface CurrentUser {
+  id: string;
+  role?: string | null; // 👈 Ahora sí coincide con el tipo de la sesión
+  [key: string]: any; 
+}
+
 interface Props {
   patients: { id: string; name: string }[];
   doctors: { id: string; name: string }[];
   initialData?: AppointmentData;
+  currentUser?: CurrentUser; 
 }
 
-export function AppointmentForm({ patients, doctors, initialData }: Props) {
+export function AppointmentForm({ patients, doctors, initialData, currentUser }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Estados para la lógica de slots
+  // Lógica de paciente por defecto (ahora segura con null)
+  const defaultPatientId = initialData?.userId || (currentUser?.role === "PATIENT" ? currentUser.id : "");
+
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     initialData ? new Date(initialData.date) : undefined
   );
@@ -69,11 +76,10 @@ export function AppointmentForm({ patients, doctors, initialData }: Props) {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotError, setSlotError] = useState<string | null>(null);
 
-  // Configuración del Formulario
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      userId: initialData?.userId || "",
+      userId: defaultPatientId,
       doctorId: initialData?.doctorId || "",
       date: initialData ? new Date(initialData.date) : undefined,
       time: initialData ? format(new Date(initialData.date), "HH:mm") : "",
@@ -84,14 +90,12 @@ export function AppointmentForm({ patients, doctors, initialData }: Props) {
   const watchDate = form.watch("date");
   const watchDoctorId = form.watch("doctorId");
 
-  // Efecto para sincronizar el calendario visual
   useEffect(() => {
     if (watchDate) {
       setSelectedDate(watchDate);
     }
   }, [watchDate]);
 
-  // Efecto para buscar slots disponibles
   useEffect(() => {
     async function fetchSlots() {
       if (!watchDate || !watchDoctorId) return;
@@ -100,36 +104,33 @@ export function AppointmentForm({ patients, doctors, initialData }: Props) {
       setSlotError(null);
       setAvailableSlots([]);
       
-      // Reseteamos la hora si cambiamos de fecha (excepto en carga inicial)
-      if (!initialData || (initialData && watchDate.getTime() !== new Date(initialData.date).getTime())) {
+      const isInitialLoad = initialData && watchDate.getTime() === new Date(initialData.date).getTime();
+      if (!isInitialLoad) {
           form.setValue("time", ""); 
       }
 
       try {
         const dateString = format(watchDate, "yyyy-MM-dd");
         
-        // CORRECCIÓN TYPESCRIPT: Manejo seguro de la respuesta
         const response: any = await getAvailableSlots(dateString, watchDoctorId);
 
-        if (response.error) {
+        if (response && response.error) {
             setSlotError(response.error);
             setLoadingSlots(false);
             return;
         }
 
-        // Extraemos el array de slots de forma segura
         const slotsArray = Array.isArray(response) ? response : (response.slots || []);
         const finalSlots = [...slotsArray]; 
         
-        // Si estamos editando, inyectamos la hora actual del turno
-        if (initialData && format(new Date(initialData.date), "yyyy-MM-dd") === dateString) {
-            const currentHour = format(new Date(initialData.date), "HH:mm");
+        if (isInitialLoad) {
+            const currentHour = format(new Date(initialData!.date), "HH:mm");
             
             if (!finalSlots.includes(currentHour)) {
                 finalSlots.push(currentHour);
                 finalSlots.sort(); 
             }
-             form.setValue("time", currentHour);
+            form.setValue("time", currentHour);
         }
 
         setAvailableSlots(finalSlots);
@@ -175,12 +176,12 @@ export function AppointmentForm({ patients, doctors, initialData }: Props) {
         throw new Error(errorData.error || "Error al procesar el turno");
       }
 
-      toast.success(initialData ? "Turno actualizado" : "Turno creado");
+      toast.success(initialData ? "Turno actualizado exitosamente" : "Turno creado exitosamente");
       router.push("/dashboard/turnos");
-      router.refresh();
+      router.refresh(); 
       
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Ocurrió un error inesperado");
     } finally {
       setLoading(false);
     }
@@ -204,37 +205,40 @@ export function AppointmentForm({ patients, doctors, initialData }: Props) {
                       <Button
                         variant="outline"
                         role="combobox"
+                        disabled={currentUser?.role === "PATIENT"} 
                         className={cn("justify-between", !field.value && "text-muted-foreground")}
                       >
                         {field.value
-                          ? patients.find((patient) => patient.id === field.value)?.name
+                          ? patients.find((patient) => patient.id === field.value)?.name || "Paciente actual"
                           : "Seleccionar paciente"}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
-                  <PopoverContent className="p-0">
-                    <Command>
-                      <CommandInput placeholder="Buscar paciente..." />
-                      <CommandList>
-                        <CommandEmpty>No se encontró.</CommandEmpty>
-                        <CommandGroup>
-                          {patients.map((patient) => (
-                            <CommandItem
-                              value={patient.name}
-                              key={patient.id}
-                              onSelect={() => field.onChange(patient.id)}
-                            >
-                              <Check
-                                className={cn("mr-2 h-4 w-4", patient.id === field.value ? "opacity-100" : "opacity-0")}
-                              />
-                              {patient.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
+                  {currentUser?.role !== "PATIENT" && (
+                    <PopoverContent className="p-0">
+                        <Command>
+                        <CommandInput placeholder="Buscar paciente..." />
+                        <CommandList>
+                            <CommandEmpty>No se encontró el paciente.</CommandEmpty>
+                            <CommandGroup>
+                            {patients.map((patient) => (
+                                <CommandItem
+                                value={patient.name}
+                                key={patient.id}
+                                onSelect={() => field.onChange(patient.id)}
+                                >
+                                <Check
+                                    className={cn("mr-2 h-4 w-4", patient.id === field.value ? "opacity-100" : "opacity-0")}
+                                />
+                                {patient.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                        </Command>
+                    </PopoverContent>
+                  )}
                 </Popover>
                 <FormMessage />
               </FormItem>
@@ -267,7 +271,7 @@ export function AppointmentForm({ patients, doctors, initialData }: Props) {
                     <Command>
                       <CommandInput placeholder="Buscar médico..." />
                       <CommandList>
-                        <CommandEmpty>No se encontró.</CommandEmpty>
+                        <CommandEmpty>No se encontró el médico.</CommandEmpty>
                         <CommandGroup>
                           {doctors.map((doctor) => (
                             <CommandItem
@@ -318,7 +322,7 @@ export function AppointmentForm({ patients, doctors, initialData }: Props) {
             )}
           />
 
-          {/* TIME SLOTS */}
+          {/* SLOTS DE TIEMPO */}
           <FormField
             control={form.control}
             name="time"
