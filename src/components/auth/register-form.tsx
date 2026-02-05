@@ -52,7 +52,7 @@ export function RegisterForm() {
       description="Únete a nuestra plataforma de salud"
       footerText="¿Ya tienes cuenta?"
       footerLinkText="Inicia sesión"
-      footerLinkHref="/sign-in"
+      footerLinkHref="/login"
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

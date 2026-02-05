@@ -32,8 +32,8 @@ import { getAvailableSlots } from "@/actions/availability";
 const formSchema = z.object({
   userId: z.string().min(1, "Selecciona un paciente"),
   doctorId: z.string().min(1, "Selecciona un médico"),
-  date: z.date({ 
-    message: "Selecciona una fecha válida" 
+  date: z.date({
+    message: "Selecciona una fecha válida"
   }),
   time: z.string().min(1, "Selecciona una hora"),
   notes: z.string().optional(),
@@ -43,7 +43,7 @@ interface AppointmentData {
   id: string;
   userId: string;
   doctorId: string;
-  date: Date | string; 
+  date: Date | string;
   notes: string | null;
   status: string;
 }
@@ -52,14 +52,14 @@ interface AppointmentData {
 interface CurrentUser {
   id: string;
   role?: string | null; // 👈 Ahora sí coincide con el tipo de la sesión
-  [key: string]: any; 
+  [key: string]: any;
 }
 
 interface Props {
   patients: { id: string; name: string }[];
   doctors: { id: string; name: string }[];
   initialData?: AppointmentData;
-  currentUser?: CurrentUser; 
+  currentUser?: CurrentUser;
 }
 
 export function AppointmentForm({ patients, doctors, initialData, currentUser }: Props) {
@@ -103,34 +103,35 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
       setLoadingSlots(true);
       setSlotError(null);
       setAvailableSlots([]);
-      
+
       const isInitialLoad = initialData && watchDate.getTime() === new Date(initialData.date).getTime();
       if (!isInitialLoad) {
-          form.setValue("time", ""); 
+        form.setValue("time", "");
       }
 
       try {
         const dateString = format(watchDate, "yyyy-MM-dd");
-        
-        const response: any = await getAvailableSlots(dateString, watchDoctorId);
+
+        // const response: any = await getAvailableSlots(dateString, watchDoctorId);
+        const response: any = await getAvailableSlots(watchDoctorId, dateString);
 
         if (response && response.error) {
-            setSlotError(response.error);
-            setLoadingSlots(false);
-            return;
+          setSlotError(response.error);
+          setLoadingSlots(false);
+          return;
         }
 
         const slotsArray = Array.isArray(response) ? response : (response.slots || []);
-        const finalSlots = [...slotsArray]; 
-        
+        const finalSlots = [...slotsArray];
+
         if (isInitialLoad) {
-            const currentHour = format(new Date(initialData!.date), "HH:mm");
-            
-            if (!finalSlots.includes(currentHour)) {
-                finalSlots.push(currentHour);
-                finalSlots.sort(); 
-            }
-            form.setValue("time", currentHour);
+          const currentHour = format(new Date(initialData!.date), "HH:mm");
+
+          if (!finalSlots.includes(currentHour)) {
+            finalSlots.push(currentHour);
+            finalSlots.sort();
+          }
+          form.setValue("time", currentHour);
         }
 
         setAvailableSlots(finalSlots);
@@ -159,10 +160,10 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
         notes: values.notes,
       };
 
-      const url = initialData 
+      const url = initialData
         ? `/api/turnos/${initialData.id}`
         : `/api/turnos`;
-      
+
       const method = initialData ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -178,8 +179,8 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
 
       toast.success(initialData ? "Turno actualizado exitosamente" : "Turno creado exitosamente");
       router.push("/dashboard/turnos");
-      router.refresh(); 
-      
+      router.refresh();
+
     } catch (error: any) {
       toast.error(error.message || "Ocurrió un error inesperado");
     } finally {
@@ -190,7 +191,7 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        
+
         <div className="grid gap-4 md:grid-cols-2">
           {/* PACIENTE */}
           <FormField
@@ -205,7 +206,7 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
                       <Button
                         variant="outline"
                         role="combobox"
-                        disabled={currentUser?.role === "PATIENT"} 
+                        disabled={currentUser?.role === "PATIENT"}
                         className={cn("justify-between", !field.value && "text-muted-foreground")}
                       >
                         {field.value
@@ -217,26 +218,26 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
                   </PopoverTrigger>
                   {currentUser?.role !== "PATIENT" && (
                     <PopoverContent className="p-0">
-                        <Command>
+                      <Command>
                         <CommandInput placeholder="Buscar paciente..." />
                         <CommandList>
-                            <CommandEmpty>No se encontró el paciente.</CommandEmpty>
-                            <CommandGroup>
+                          <CommandEmpty>No se encontró el paciente.</CommandEmpty>
+                          <CommandGroup>
                             {patients.map((patient) => (
-                                <CommandItem
+                              <CommandItem
                                 value={patient.name}
                                 key={patient.id}
                                 onSelect={() => field.onChange(patient.id)}
-                                >
+                              >
                                 <Check
-                                    className={cn("mr-2 h-4 w-4", patient.id === field.value ? "opacity-100" : "opacity-0")}
+                                  className={cn("mr-2 h-4 w-4", patient.id === field.value ? "opacity-100" : "opacity-0")}
                                 />
                                 {patient.name}
-                                </CommandItem>
+                              </CommandItem>
                             ))}
-                            </CommandGroup>
+                          </CommandGroup>
                         </CommandList>
-                        </Command>
+                      </Command>
                     </PopoverContent>
                   )}
                 </Popover>
@@ -305,17 +306,17 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
               <FormItem className="flex flex-col">
                 <FormLabel>Fecha del Turno</FormLabel>
                 <div className="border rounded-md p-4 flex justify-center bg-slate-50 dark:bg-slate-900/50">
-                    <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date() || date < new Date("1900-01-01")}
-                        initialFocus
-                        locale={es}
-                        classNames={{
-                            head_cell: "text-muted-foreground font-normal text-[0.8rem] capitalize",
-                        }}
-                    />
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) => date < new Date() || date < new Date("1900-01-01")}
+                    initialFocus
+                    locale={es}
+                    classNames={{
+                      head_cell: "text-muted-foreground font-normal text-[0.8rem] capitalize",
+                    }}
+                  />
                 </div>
                 <FormMessage />
               </FormItem>
@@ -335,7 +336,7 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
                       👈 Selecciona una fecha primero
                     </div>
                   ) : (
-                    <TimeSlots 
+                    <TimeSlots
                       slots={availableSlots}
                       selectedTime={field.value}
                       onSelectTime={field.onChange}
