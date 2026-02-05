@@ -48,10 +48,9 @@ interface AppointmentData {
   status: string;
 }
 
-// CORRECCIÓN AQUÍ: Aceptamos 'null' para el rol
 interface CurrentUser {
   id: string;
-  role?: string | null; // 👈 Ahora sí coincide con el tipo de la sesión
+  role?: string | null;
   [key: string]: any;
 }
 
@@ -66,7 +65,11 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Lógica de paciente por defecto (ahora segura con null)
+  // ESTADOS NUEVOS: Controlamos manualmente la apertura de los menús
+  const [openPatient, setOpenPatient] = useState(false);
+  const [openDoctor, setOpenDoctor] = useState(false);
+
+  // Lógica de paciente por defecto
   const defaultPatientId = initialData?.userId || (currentUser?.role === "PATIENT" ? currentUser.id : "");
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
@@ -112,7 +115,7 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
       try {
         const dateString = format(watchDate, "yyyy-MM-dd");
 
-        // const response: any = await getAvailableSlots(dateString, watchDoctorId);
+        // Orden corregido: (ID, Fecha)
         const response: any = await getAvailableSlots(watchDoctorId, dateString);
 
         if (response && response.error) {
@@ -200,13 +203,16 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Paciente</FormLabel>
-                <Popover>
+                {/* CORRECCIÓN: Agregamos open y onOpenChange */}
+                <Popover open={openPatient} onOpenChange={setOpenPatient}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
                         variant="outline"
                         role="combobox"
+                        // Deshabilitamos apertura si el usuario es PACIENTE
                         disabled={currentUser?.role === "PATIENT"}
+                        aria-expanded={openPatient}
                         className={cn("justify-between", !field.value && "text-muted-foreground")}
                       >
                         {field.value
@@ -216,6 +222,7 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
+                  
                   {currentUser?.role !== "PATIENT" && (
                     <PopoverContent className="p-0">
                       <Command>
@@ -227,7 +234,11 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
                               <CommandItem
                                 value={patient.name}
                                 key={patient.id}
-                                onSelect={() => field.onChange(patient.id)}
+                                onSelect={() => {
+                                  field.onChange(patient.id);
+                                  // TRUCO: setTimeout para cerrar sin conflicto de foco
+                                  setTimeout(() => setOpenPatient(false), 0);
+                                }}
                               >
                                 <Check
                                   className={cn("mr-2 h-4 w-4", patient.id === field.value ? "opacity-100" : "opacity-0")}
@@ -253,12 +264,14 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Médico</FormLabel>
-                <Popover>
+                {/* CORRECCIÓN: Agregamos open y onOpenChange */}
+                <Popover open={openDoctor} onOpenChange={setOpenDoctor}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
                         variant="outline"
                         role="combobox"
+                        aria-expanded={openDoctor}
                         className={cn("justify-between", !field.value && "text-muted-foreground")}
                       >
                         {field.value
@@ -278,7 +291,11 @@ export function AppointmentForm({ patients, doctors, initialData, currentUser }:
                             <CommandItem
                               value={doctor.name}
                               key={doctor.id}
-                              onSelect={() => field.onChange(doctor.id)}
+                              onSelect={() => {
+                                field.onChange(doctor.id);
+                                // TRUCO: setTimeout para cerrar sin conflicto de foco
+                                setTimeout(() => setOpenDoctor(false), 0);
+                              }}
                             >
                               <Check
                                 className={cn("mr-2 h-4 w-4", doctor.id === field.value ? "opacity-100" : "opacity-0")}
